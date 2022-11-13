@@ -1,0 +1,197 @@
+---
+title: "Project 1: Analysis of Top European Clubs"
+author: "Shehzad Anwar"
+date: '2022-06-10'
+output:
+  pdf_document: default
+---
+
+## Background and Problem Definition {style="color: black;"}
+
+The purpose for this project will be to analyse the playing statistics that separate these football clubs offensively and defensively while also observing which of them have been over-performing and/or under-performing based on their entire season's output of goals allowed and goals conceded. Furthermore, I will analyze which country is the dominant nation in European football at the moment based on the given rankings. UEFA picks the top 32 clubs to participate in its premier annual tournament, the UEFA Champions League, and so I will be using the top 32 ranked clubs to process the data in the final analysis.
+
+The data being used in this project is stats of European football clubs that played in each of the top five ranked nations' first divisions during the 2021/22 season. Their ranks are based on how highly UEFA, the continental board for the sport, rate them in their standing in world football. The data was collected and made available to the public on FBref.com.
+
+```{r,message=FALSE}
+library(knitr)
+library(ggplot2) # needed to plot
+library(dplyr) # needed for data cleaning
+library(tidyr) # needed to tidy the data up
+library(plotly) # needed to plot
+top5_stats = read.csv("Big_5_European_Leagues_Stats.csv") # reads the provided csv data file
+top5_stats = na.omit(top5_stats) # gets rid of any NA values in the dataset
+head(top5_stats)
+```
+
+I've shown a snippet of the dataset to give an idea on how the rest of the data points are formatted. The libraries I've called are ggplot2, to allow me to plot the dataset, dplyr, to help in cleaning and arranging the data in a proper manner, tidyr to aid in that, and plotly to allow me to have more graphing options. 'top5_stats' will hold the data from the "Big_5\_European_Leagues_Stats.csv" file and all NA values have been cleared off it.
+
+## Data Analysis and Visualization
+
+### How have clubs over-performed and under-performed in goals this season?
+
+```{r,warning=FALSE,echo=FALSE}
+top5_stats_attack = select(top5_stats,
+                           'Squad',
+                           'Country',
+                           'LgRk',
+                           'GF',
+                           'xG',
+                           'Top.Team.Scorer') # this dataframe will only select the 'Squad', 'Country', 'LgRk', 'GF', 'xG', and 'Top.Team.Scorer' columns so as to make it easier to access it and not have too much in the way
+
+top5xGplot = top5_stats_attack %>% ggplot(aes(x = xG, y = GF, color = Country)) + geom_point(size = 2) + geom_abline(
+  slope = 1,
+  intercept = 0,
+  color = "red1",
+  linetype = 2
+) + ggrepel::geom_text_repel(aes(label = Squad), size = 1.8) + scale_x_continuous(limits = c(20, 80), name = "Expected Goals (xG)") + scale_y_continuous(limits = c(20, 85), name = "Goals For (GF)") + ggtitle("Expected Goals vs. Actual Goals", subtitle = "The dashed line represents whether or not teams \noverperformed on their xG, or underperformed, \ndepending on if they are above it, or below.") +
+  theme_minimal() + theme(
+    plot.title = element_text(size = 17, face = "bold"),
+    plot.subtitle = element_text(size = 12, color = "grey30")
+  )
+top5xGplot
+```
+
+### Expected Goals Scored vs. Actual Goals Scored {style="color: midnightblue;"}
+
+In order to get the plot, I extracted attack related columns from the original dataset and initialized them in top5_stats_attack, which I then used to implement into a ggplot scattergraph. I then set up the graph with a geom_point, geom_abline and a ggrepel label to differentiate between the points, as well as added color to the points to see what country each of the clubs are from to make it stand out more.
+
+From the plot, we can observe that some of the clubs that outperformed their xG the most are Dortmund, Rennes, Levursken and Lazio. This tells us two things. It could mean that these clubs have high level forwards who finish most of their chances and have been doing brilliantly to do as they are. Let us look at the aforementioned clubs' top goalscorers, respectively:
+
+```{r}
+top5_stats_attack[c(8, 17, 18, 29), ] # will select only the mentioned scorers' clubs
+```
+
+A quick calculation will allow us to see what percentage of the total goals scored by the clubs will allow us to see how paramount their each team's forwards are and if they are overreliant on them or not. It is generally accepted that, for clubs in the modern day, that the entire squad generates goals and not just one player. As such, with 1 goalkeeper, 5 defenders, and usually 2 defensive midfielders, the rest of the 4 outfield players should bring in the goals. I'll take the mean of the total goals scored throughout Europe in order to assess the average amount of goals every club has scored and use it to calculate the percentage each team's 4 attacking players needed output of goals each.
+
+The average goals scored across Europe is:
+
+```{r,echo=FALSE}
+mean(top5_stats_attack$GF)
+standard_attack = mean(top5_stats_attack$GF) / 4
+
+```
+
+A well balanced team's four attacking players should be scoring at least this amount of goals:
+
+```{r,echo=FALSE}
+standard_attack
+```
+
+What this means is each of the 4 attacking players should score at least 9 goals in order to stay competitive in their leagues. Let us now see how reliant each of the 4 teams are on their top goalscorer:
+
+```{r,echo=FALSE}
+outperforms_xG_strikers = c(16, 16, 20, 21)
+Percent.Of.Goals = outperforms_xG_strikers / top5_stats_attack$GF[c(8, 17, 18, 29)] *
+  100
+Forwards = c("Haaland", "Terrier", "Schick", "Immobile")
+Forwards_percent = data.frame(Forwards, Percent.Of.Goals)
+Forwards_percent
+```
+
+From the data, we can tell that Haaland scores \~24%, Terrier scores \~25%, Schick scores \~30% and Immobile scores \~36% of their clubs' total goals scored. This proves that each of these teams are overreliant on one of their forwards for their goals, and needs to bring in another forward to keep from risking their goals scored next season from falling off a cliff. Any injuries, sales or unforeseen scenarios that may act on any of these forwards will cause each of these teams to have a drop in performance massively.
+
+The second thing these clubs' GF to xG comparison tells us is that they need to bolster their squad with better creative midfielders. A consistent exceptional output such as these clubs have done throughout the season is unsustainable and will eventually catch up to them for the worst.
+
+```{r,warning=FALSE, echo=FALSE}
+top5_defense = select(top5_stats, 'Squad', 'Country', 'LgRk', 'GA', 'xGA') # top5_defense will only select 'Squad', 'Country', 'LgRk', 'GA' and 'xGA' columns off top5_stats
+
+top5_xGAplot = top5_defense %>% ggplot(aes(x = xGA, y = GA, color = Country)) + geom_point(size = 2) + geom_abline(
+  slope = 1,
+  intercept = 0,
+  color = "red1",
+  linetype = 2
+) + ggrepel::geom_text_repel(aes(label = Squad), size = 1.8) + scale_x_continuous(limits = c(15, 70), name = "Expected Goals Against (xGA)") + scale_y_continuous(limits = c(15, 70), name = "Goals Against (GA)") + ggtitle("Expected Goals Against vs. Actual Goals Against", subtitle = "The dashed line represents whether or not teams \noverperformed on their xGA, or underperformed, \ndepending on if they are below it, or above it.") +
+  theme_minimal() + theme(
+    plot.title = element_text(size = 17, face = "bold"),
+    plot.subtitle = element_text(size = 12, color = "grey30")
+  )
+top5_xGAplot
+```
+
+### Expected Goals Against vs. Actual Goals Against {style="color: midnightblue;"}
+
+From the data, it can be observed that Bordeaux, Levante, Greuther Furth, Salernitana, Leeds United and Norwich City are all wildly underperforming on their xGA. The aforementioned clubs have all been relegated to the second division as well, except for Leeds United (who, as mentioned in the background, are a club that have gotten extremely lucky not to have been relegated with their stats):
+
+```{r}
+top5_defense[c(79, 93, 95, 97, 98), ]
+```
+
+Simply put, this means that each of these teams must improve their squads or style of play if they want to continue to fight in Europe's top flight. Whether they improve the defense or the goalkeeper remains a question that must be answered with data from other sources.
+
+### Do more goals scored throughout the season mean more wins? {style="color: midnightblue;"}
+
+For the following question, I will be creating another dataframe that only contains the columns I will need. The expected goals (xG) statistic will be used as it is an indicator as to how many goalscoring opportunites a team, and the higher the league rank of each team, the higher their xG. I will aim to answer whether offense is more important than defense.
+
+```{r,warning=FALSE,echo=FALSE}
+top5_winsToGoals = select(top5_stats, 'W', 'Squad', 'GF', 'xG', 'LgRk')
+
+fitW = lm(W ~ xG, data = top5_winsToGoals)
+top5_winsToGoalsPlot = plot_ly(
+  top5_winsToGoals,
+  x =  ~ xG,
+  y =  ~ W,
+  color = ~ LgRk,
+  hoverinfo = 'text',
+  hovertext = ~ paste('Club:', Squad, '<br>LgRank:', LgRk),
+  showlegend = F
+) %>% add_markers(y =  ~ W) %>% layout(title = 'Wins vs Expected Goals') %>% add_lines(x = ~
+                                                                                         xG,
+                                                                                       y = fitted(fitW),
+                                                                                       showlegend = F)
+top5_winsToGoalsPlot
+```
+
+The summary of the linear regression model can be found below:
+
+```{r,echo=FALSE}
+summary(fitW)
+```
+
+Assigning the linear regression to fitW, I created a plotly scatterplot and inserted the fitted value of fitW to see how the model would line up against actual data. It is accurate and seems to prove that focusing on defense is a better tactic than offense. The R\^2, the correlation coefficient, is not too small and does show that there is a correlation between the two variables. The model generated here gives us a formula of *Number of Wins* = -3.99003 + 0.38306 \* *xG.*
+
+As can be observed from the plot and the linear regression model, it seems less important to be able to score more goals in order to get more wins, which leads us to the idea that it is more important to not concede. Liverpool and Bayern Munich, 2nd and 1st in their own leagues, respectively, are both behind Manchester City in number of wins. Liverpool are also direct competitors to Man City and proved that their defense is *slightly* better than Liverpool's. There is a difference of only 2 goals conceded between the two teams, while the difference in expected goals is much higher (5.5):
+
+```{r}
+top5_defense[c(1, 2), ]
+```
+
+Such are the margins that they miss out on the top spot because of 2 goals they conceded, which ultimately led to a loss or draw. As such, it its important for Liverpool to bolster their defense in the coming seasons if they are to compete at City's level, and the same can be said for other teams that plan on doing the same.
+
+```{r,echo=FALSE}
+fitW.res = resid(fitW)
+hist(fitW.res, prob = TRUE)
+lines(density(fitW.res), col = "red")
+```
+
+The density graph is not really skewed in any direction and is mostly symmetric, which leads me to believe that the model that's been setup fits well.
+
+### What country's clubs dominate the top 32 European rankings? {style="color: midnightblue;"}
+
+We'll take the top 32 clubs as they are the ones that UEFA recognizes them as they are the ones chosen to play in UEFA's annual tournaments and recognized as good enough to compete at the top level consistently.
+
+```{r}
+countryRanks32 = head(top5_stats, 32)
+head(countryRanks32)
+```
+
+```{r,echo=FALSE}
+pieData = countryRanks32 %>% count(Country) %>% arrange(desc(Country)) %>% mutate(prop = round(n *
+                                                                                                 100 / sum(n), 1),
+                                                                                  lab.ypos = cumsum(prop) - 0.5 * prop)
+pieData
+```
+
+```{r,echo=FALSE}
+rank32 = plot_ly(pieData,
+                 labels = ~ Country,
+                 values = ~ n,
+                 type = 'pie')
+rank32 = rank32 %>% layout(title = "Top 32 European Clubs by Nation")
+rank32
+```
+
+From the pie graph, it can be confirmed that the Italian league has the most number of clubs in the top 32. This supports the idea that Italy has been the best country in terms of overall club quality and can be confirmed further with the fact that Italy won the UEFA Euros 2020 (which took place in 2021 due to COVID). England comes at a close 2nd according to the pie chart, with 7 clubs in the top 32 as opposed to Italy's 8. This is further strengthened, again, as England were Italy's opponents in the Final of the Euros. It is a testament to both nations that both of them are at the pinnacle of the sport at the moment.
+
+## Conclusion
+
+Through the use of scatterplots, linear regression models and a pie chart, we were able to demonstrate techniques that facilitate the observations of overperformance and underperformance in expected goals scored and expected goals conceded, as well as confirmed Italy as the current best nation overall according to UEFA's ranking system, based on how many Italian clubs were there in the top 32 teams.
